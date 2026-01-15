@@ -22,6 +22,29 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      - name: Clean up Runner to free space
+        run: |
+          echo "=== 清理前磁盘空间 ==="
+          df -h
+          
+          # 1. 清理Docker（占空间最大，约5-8GB）
+          sudo docker system prune -a -f --volumes
+          
+          # 2. 清理无用的工具链/缓存
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/lib/android /opt/android # 清理Android SDK缓存
+          
+          # 3. 清理apt缓存和临时文件
+          sudo apt clean
+          sudo rm -rf /var/lib/apt/lists/*
+          sudo rm -rf /tmp/* /var/tmp/*
+          
+          # 4. 清理日志和大文件
+          sudo truncate -s 0 /var/log/*.log
+          sudo rm -rf /home/runner/.cache/*
+          
+          echo "=== 清理后磁盘空间 ==="
+          df -h
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
         
@@ -38,8 +61,8 @@ jobs:
       - name: Set up Android Kernel source
         run: |
           mkdir -p android-kernel && cd android-kernel
-          repo init -u https://android.googlesource.com/kernel/manifest -b common-android${{ github.event.inputs.android_version }}-${{ github.event.inputs.kernel_version }}
-          repo sync -j$(nproc) -c --no-tags --optimized-fetch --force-sync
+          repo init -u https://android.googlesource.com/kernel/manifest -b common-android${{ github.event.inputs.android_version }}-${{ github.event.inputs.kernel_version }} --depth=1
+          repo sync -j$(nproc) -c --no-clone-bundle --no-tags --optimized-fetch --force-sync
 
       - name: Copy kerneldriver
         run: |
